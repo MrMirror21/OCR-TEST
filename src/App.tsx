@@ -1,6 +1,25 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import axios from "axios";
+import { useMotionValue, motion } from "framer-motion";
+import styled from "styled-components";
+
+const DRAG_BUFFER = 50; // 페이지 이동을 유발하는 드래그 길이
+
+const slides = [
+  {
+    id: 1,
+    text: "이벤트",
+  },
+];
+
+// 애니메이션 설정
+const SPRING_OPTIONS = {
+  type: "spring",
+  mass: 3,
+  stiffness: 400,
+  damping: 50,
+};
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -8,6 +27,10 @@ function App() {
     null
   );
   const [text, setText] = useState<Array<object>>();
+
+  const [page, setPage] = useState(0);
+  const dragX = useMotionValue(0);
+  const [width, setWidth] = useState<number>(0);
 
   useEffect(() => {
     if (selectedFile) {
@@ -20,6 +43,11 @@ function App() {
       };
       reader.readAsDataURL(selectedFile);
     }
+    const maxWidth =
+      document.documentElement.clientWidth < 480
+        ? document.documentElement.clientWidth
+        : 400;
+    setWidth(maxWidth);
   }, [selectedFile]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,7 +96,8 @@ function App() {
 
     try {
       const response = await axios.post(url, body, { headers });
-      const detectedText = response.data.responses[0].textAnnotations[0].description;
+      const detectedText =
+        response.data.responses[0].textAnnotations[0].description;
       setText(detectedText);
       console.log(detectedText);
     } catch (error) {
@@ -77,9 +106,27 @@ function App() {
     }
   };
 
+  // 마우스 드래그를 통한 슬라이드 이동 함수
+  const onDragEnd = () => {
+    const x = dragX.get();
+
+    x <= -DRAG_BUFFER &&
+      page < slides.length - 1 &&
+      setPage((point) => point + 1);
+    x >= DRAG_BUFFER && page > 0 && setPage((point) => point - 1);
+    x >= DRAG_BUFFER && page == 0 && alert("게시물 삭제")
+  };
+
   return (
     <>
-      <div style={{display: "flex", flexDirection: "column", gap: "20px", width: "400px"}}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "20px",
+          width: "400px",
+        }}
+      >
         {base64Image !== null ? (
           <img
             src={base64Image}
@@ -92,9 +139,75 @@ function App() {
         <input type="file" onChange={onFileChange} />
         <button onClick={handleSubmit}>get text!</button>
         <p>{text ? String(text) : ""}</p>
+        <Background>
+          <Carousel>
+            <motion.div
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              style={{
+                x: dragX,
+                width: "4000px",
+                marginBottom: "20px",
+              }}
+              animate={{ translateX: `-${page * width}px` }}
+              transition={SPRING_OPTIONS}
+              onDragEnd={onDragEnd}
+              className="container"
+            >
+              <Slide>삭제</Slide>
+              {slides.map((slide, idx) => {
+                return (
+                  <SlideBg className="slideBg">
+                    <motion.div key={idx} transition={SPRING_OPTIONS}>
+                      <Slide>{slide.text}</Slide>
+                    </motion.div>
+                  </SlideBg>
+                );
+              })}
+            </motion.div>
+          </Carousel>
+        </Background>
       </div>
     </>
   );
 }
 
 export default App;
+
+const Background = styled.div`
+  width: 400px;
+  overflow: hidden;
+`;
+
+const Slide = styled.div`
+  width: 100px;
+  background: blue;
+`;
+
+const SlideBg = styled.div`
+  width: 400px;
+  display: flex;
+  flex-direction: row;
+  gap: 30px;
+  background: blue;
+`;
+
+const Carousel = styled.div`
+  width: 4000px;
+  background: white;
+  overflow: hidden;
+  transform: translateX(-100px);
+  .container {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    overflow: hidden;
+  }
+  .slideBg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 400px;
+    overflow: hidden;
+  }
+`;
