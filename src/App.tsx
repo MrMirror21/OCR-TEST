@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import axios from "axios";
-import { useMotionValue, motion } from "framer-motion";
+import { useMotionValue, motion, PanInfo } from "framer-motion";
 import styled from "styled-components";
 
-const DRAG_BUFFER = 50; // 페이지 이동을 유발하는 드래그 길이
+const DRAG_BUFFER = 80; // 페이지 이동을 유발하는 드래그 길이
 
 const slides = [
   {
@@ -29,8 +29,10 @@ function App() {
   const [text, setText] = useState<Array<object>>();
 
   const [page, setPage] = useState(0);
-  const dragX = useMotionValue(0);
   const [width, setWidth] = useState<number>(0);
+
+  const [dragStartX, setDragStartX] = useState(0);
+const dragX = useMotionValue(0);
 
   useEffect(() => {
     if (selectedFile) {
@@ -106,6 +108,16 @@ function App() {
     }
   };
 
+  const onDragStart = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo): void => {
+    setDragStartX(info.point.x);
+  };
+  
+  const onDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo): void => {
+    const currentDrag = info.point.x - dragStartX;
+    dragX.set(currentDrag > 0 ? Math.min(currentDrag, 100) : 0);
+  };
+  
+
   // 마우스 드래그를 통한 슬라이드 이동 함수
   const onDragEnd = () => {
     const x = dragX.get();
@@ -114,7 +126,7 @@ function App() {
       page < slides.length - 1 &&
       setPage((point) => point + 1);
     x >= DRAG_BUFFER && page > 0 && setPage((point) => point - 1);
-    x >= DRAG_BUFFER && page == 0 && alert("게시물 삭제")
+    x >= DRAG_BUFFER && page == 0 && alert("게시물 삭제");
   };
 
   return (
@@ -151,10 +163,13 @@ function App() {
               }}
               animate={{ translateX: `-${page * width}px` }}
               transition={SPRING_OPTIONS}
+              onDragStart={onDragStart}
+              onDrag={onDrag}
               onDragEnd={onDragEnd}
+              dragElastic={0.2}
               className="container"
             >
-              <Slide>삭제</Slide>
+              <DeleteSlide>삭제</DeleteSlide>
               {slides.map((slide, idx) => {
                 return (
                   <SlideBg className="slideBg">
@@ -182,6 +197,10 @@ const Background = styled.div`
 const Slide = styled.div`
   width: 100px;
   background: blue;
+`;
+
+const DeleteSlide = styled(Slide)`
+  background: red;
 `;
 
 const SlideBg = styled.div`
